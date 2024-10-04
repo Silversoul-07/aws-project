@@ -1,10 +1,11 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import List
 
 class UserBase(BaseModel):
     username: str
     email: str
+    pic: str
 
 class UserCreate(UserBase):
     password: str
@@ -13,52 +14,51 @@ class User(UserBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class AuthForm(BaseModel):
+    email:str
+    password:str
 
 class CourseBase(BaseModel):
-    name: str
-    group: str
-    details: str
+    semester: str
+    semester_type: str
+    course_code: str
+    course_name: str
+    course_type: str
+    class_no: str
+    class_venue: str
+    class_slots: List[str]
+    faculty_name: str
+    faculty_school: str
 
 class CourseCreate(CourseBase):
     pass
 
-class Course(CourseBase):
-    id: int
-
-    class Config:
-        orm_mode = True
-
-class ClassBase(BaseModel):
+class Attendance(BaseModel):
+    user_id: int
     course_id: int
-    faculty_id: int
-    details: str
-
-class ClassCreate(ClassBase):
-    pass
-
-class Class(ClassBase):
-    id: int
-
-    class Config:
-        orm_mode = True
-
-class AttendanceBase(BaseModel):
-    student_id: int
-    class_id: int
     date: datetime
-    is_present: bool
+    day: str
+    slot: str
+    status: bool    
 
-class AttendanceCreate(AttendanceBase):
-    pass
-
-class Attendance(AttendanceBase):
-    id: int
-
+class AttendanceView(BaseModel):
+    user_id: int
+    course_id: int
+    date: datetime
+    day: str
+    slot: str
+    status: bool
+    course: CourseBase
+    user: UserBase
     class Config:
-        orm_mode = True
+        form_attribute = True
 
-class AttendanceSummary(BaseModel):
-    attended_classes: int
-    total_classes: int
-    attendance_percentage: float
+class Registration(BaseModel):
+    user_id: int
+    course_id: int
