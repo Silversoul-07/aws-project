@@ -26,8 +26,37 @@ def create_course(db: Session, **kwargs):
     print("Course created")
     return db_course
 
-def get_courses(db: Session, semester: str, semester_type: str, limit: int = 10):
-    return db.query(models.Course).filter(models.Course.semester == semester, models.Course.semester_type == semester_type).limit(limit).all()
+def get_all_courses(db: Session, semester: str, semester_type: str, user_id: int):
+    courses = db.query(models.Course).filter(
+        models.Course.semester == semester,
+        models.Course.semester_type == semester_type
+    ).all()
+
+    registered_courses = db.query(models.Registration.course_id).filter(
+        models.Registration.user_id == user_id
+    ).all()
+    registered_course_ids = {course_id for (course_id,) in registered_courses}
+
+    result = []
+    for course in courses:
+        course_info = {
+            "id": course.id,
+            'semester': course.semester,
+            'semester_type': course.semester_type,
+            "course_code": course.course_code,
+            "course_name": course.course_name,
+            "course_type": course.course_type,
+            "faculty_name": course.faculty_name,
+            "class_no": course.class_no,
+            "class_venue": course.class_venue,
+            "class_slots": course.class_slots,
+            "faculty_school": course.faculty_school,
+            "faculty_name": course.faculty_name,
+            "registered": course.id in registered_course_ids
+        }
+        result.append(course_info)
+
+    return result
 
 def get_course_by_slot(db: Session, semester: str, semester_type: str, slot: str):
     return db.query(models.Course).filter(models.Course.semester == semester, models.Course.semester_type == semester_type, models.Course.class_slots.any(slot)).first()

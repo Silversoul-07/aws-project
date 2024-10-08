@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import ARRAY
+from uuid import uuid4
 
 Base = declarative_base()
 
@@ -12,6 +13,13 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     pic = Column(String)
+
+    def __init__(self, username, email, hashed_password, pic):
+        self.id = uuid4().time_low // 100
+        self.username = username
+        self.email = email
+        self.hashed_password = hashed_password
+        self.pic = pic
 
 class Course(Base):
     __tablename__ = "courses"

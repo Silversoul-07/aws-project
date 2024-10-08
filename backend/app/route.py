@@ -162,9 +162,11 @@ def create_course_endpoint(
     }
     return crud.create_course(db, **kwargs)
 
-@router.get("/courses", response_model=List[schemas.CourseBase])
-def get_courses_endpoint(db: Session = Depends(get_db), semester: str = None, semester_type: str = None):
-    return crud.get_courses(db, semester, semester_type)
+@router.get("/courses", response_model=List[schemas.CourseRegister])
+def get_courses_endpoint(db: Session = Depends(get_db), semester: str = "Fall", semester_type: str = "General", token: str = Depends(oauth2_scheme)):
+    email = get_email_from_token(token)
+    user = crud.get_user_by_email(db, email)
+    return crud.get_all_courses(db, semester, semester_type, user.id)
 
 # register course
 @router.post("/register-course", response_model=schemas.Registration)

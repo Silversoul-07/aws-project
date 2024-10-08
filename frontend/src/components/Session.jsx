@@ -31,6 +31,7 @@ const Session = () => {
     <div>
       <h1>Session Data</h1>
       <pre>{JSON.stringify(session, null, 2)}</pre>
+      <img src={session.pic} alt="avatar" />
     </div>
   );
 };

@@ -25,6 +25,7 @@ class AuthForm(BaseModel):
     password:str
 
 class CourseBase(BaseModel):
+    id: int
     semester: str
     semester_type: str
     course_code: str
@@ -36,6 +37,9 @@ class CourseBase(BaseModel):
     faculty_name: str
     faculty_school: str
 
+class CourseRegister(CourseBase):
+    registered: bool
+    
 class CourseCreate(CourseBase):
     pass
 

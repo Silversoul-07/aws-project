@@ -1,119 +1,169 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, AlertCircle } from 'lucide-react';
-import { fetchAttendanceData } from './api';
+import { Table, TableCell, TableBody, TableHead, TableHeader, TableRow } from './ui/table';
+import { Alert, AlertDescription } from './ui/alert';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import Sidebar from './Sidebar';
+import axios from 'axios';
 
-const AttendanceCard = ({ course }) => {
-  const getAttendanceStatus = (percentage, classesNeeded) => {
-    if (percentage >= 75) return { color: 'text-green-600', message: `You can miss ${classesNeeded} more classes` };
-    return { color: 'text-red-600', message: `Attend ${classesNeeded} more classes for 75%` };
-  };
-
-  const status = getAttendanceStatus(
-    course.attendancePercentage, 
-    course.attendancePercentage >= 75 ? course.canMissClasses : course.classesNeededFor75Percent
-  );
-
-  return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">{course.courseDetail}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div>
-            <p className="text-sm text-gray-500">Class Detail</p>
-            <p className="font-medium">{course.classDetail}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Faculty</p>
-            <p className="font-medium">{course.facultyDetail}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Attendance</p>
-            <p className="font-medium">
-              {course.attendedClasses} / {course.totalClasses} Classes
-            </p>
-          </div>
-        </div>
-        
-        <div className="mt-6 border-t pt-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Current Attendance</p>
-              <p className={`text-2xl font-bold ${
-                course.attendancePercentage >= 75 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {course.attendancePercentage.toFixed(2)}%
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <AlertCircle className={h-5 w-5 ${status.color}} />
-              <p className={${status.color} font-medium}>{status.message}</p>
-            </div>
-          </div>
-          
-          <div className="mt-4 bg-gray-200 rounded-full h-2.5">
-            <div 
-              className={`h-2.5 rounded-full ${
-                course.attendancePercentage >= 75 ? 'bg-green-600' : 'bg-red-600'
-              }`}
-              style={{ width: `${Math.min(course.attendancePercentage, 100)}%` }}
-            ></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const AttendanceView = () => {
-  const [attendanceData, setAttendanceData] = useState([]);
+const Home = () => {
+  const [user, setUser] = useState(null);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [attendanceReport, setAttendanceReport] = useState(null);
 
   useEffect(() => {
-    const loadData = async () => {
+    const fetchData = async () => {
       try {
-        const data = await fetchAttendanceData();
-        setAttendanceData(data);
-      } catch (error) {
-        console.error("Failed to fetch attendance data:", error);
-        setError("Failed to load attendance data. Please try again later.");
-      } finally {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+          throw new Error('No auth token found');
+        }
+
+        const axiosInstance = axios.create({
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+
+        // Fetch user session
+        const sessionResponse = await axiosInstance.get('/api/session');
+        setUser(sessionResponse.data);
+
+        // Fetch registered courses
+        const coursesResponse = await axiosInstance.get(`/api/registered-courses/${sessionResponse.data.id}`);
+
+        const coursesMap = coursesResponse.data.map((course) => ({
+          id: course.id,
+          classGroup: course.semester,
+          courseDetail: `${course.course_code} - ${course.course_name}`,
+          classDetail: `${course.class_no} - ${course.class_venue} - ${course.class_slots.join(', ')}`,
+          facultyDetail: `${course.faculty_name} - ${course.faculty_school}`,
+          attendedClasses: Math.floor(Math.random() * 20),
+          totalClasses: 20,
+          attendancePercentage: 0,
+          debarStatus: 'Not Debarred',
+        }));
+
+        // Calculate attendance percentage
+        coursesMap.forEach(course => {
+          course.attendancePercentage = Math.round((course.attendedClasses / course.totalClasses) * 100);
+        });
+
+        setCourses(coursesMap);
+
+        // Generate fake report data
+        const totalCourses = coursesMap.length;
+        const totalClasses = coursesMap.reduce((sum, course) => sum + course.totalClasses, 0);
+        const totalAttended = coursesMap.reduce((sum, course) => sum + course.attendedClasses, 0);
+        const averageAttendance = Math.round((totalAttended / totalClasses) * 100);
+
+        setAttendanceReport({
+          totalCourses,
+          present: totalAttended,
+          absent: totalClasses - totalAttended,
+          averageAttendance,
+        });
+
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to fetch data. Please try again later.');
         setLoading(false);
       }
     };
 
-    loadData();
+    fetchData();
   }, []);
 
-  if (error) {
-    return <div className="text-red-600 p-4">{error}</div>;
-  }
+  if (loading) return <div>Loading...</div>;
+  if (error) return <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>;
+
+  const reportData = [
+    { name: 'Total Courses', value: attendanceReport.totalCourses },
+    { name: 'Present', value: attendanceReport.present },
+    { name: 'Absent', value: attendanceReport.absent },
+    { name: 'Avg. Attendance', value: attendanceReport.averageAttendance },
+  ];
 
   return (
-    <div className="p-4 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Calendar className="h-6 w-6" />
-            Attendance Tracker
-          </h1>
-          <p className="text-gray-600 mt-1">Monitor your attendance and maintain 75% attendance requirement</p>
-        </div>
+    <div className="flex h-screen overflow-hidden">
+      <div className="w-64 flex-shrink-0">
+        <Sidebar />
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-4">
+          <h1 className="text-2xl font-bold mb-4">Attendance Dashboard</h1>
+          
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Attendance Report</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={reportData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#8884d8" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
 
-        {loading ? (
-          <div className="bg-white p-8 rounded-lg shadow flex justify-center items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Sl.No.</TableHead>
+                  <TableHead>Class Group</TableHead>
+                  <TableHead>Course Detail</TableHead>
+                  <TableHead>Class Detail</TableHead>
+                  <TableHead>Faculty Detail</TableHead>
+                  <TableHead>Attended Classes</TableHead>
+                  <TableHead>Total Classes</TableHead>
+                  <TableHead>Attendance Percentage</TableHead>
+                  <TableHead>75% Attendance Alert</TableHead>
+                  <TableHead>Debar Status</TableHead>
+                  <TableHead>View Attendance Detail</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {courses.map((course, index) => (
+                  <TableRow key={course.id}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{course.classGroup}</TableCell>
+                    <TableCell>{course.courseDetail}</TableCell>
+                    <TableCell>{course.classDetail}</TableCell>
+                    <TableCell>{course.facultyDetail}</TableCell>
+                    <TableCell>{course.attendedClasses}</TableCell>
+                    <TableCell>{course.totalClasses}</TableCell>
+                    <TableCell>{course.attendancePercentage}%</TableCell>
+                    <TableCell>
+                      {course.attendancePercentage < 75 ? (
+                        <Alert variant="warning">
+                          <AlertDescription>Low Attendance</AlertDescription>
+                        </Alert>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>{course.debarStatus}</TableCell>
+                    <TableCell>
+                      <button className="text-blue-500 hover:underline" onClick={() => {/* Implement view details logic */}}>
+                        View Details
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        ) : (
-          <div className="grid gap-6">
-            {attendanceData.map((course, index) => (
-              <AttendanceCard key={index} course={course} />
-            ))}
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
 };
 
-export default AttendanceView;
+export default Home;
